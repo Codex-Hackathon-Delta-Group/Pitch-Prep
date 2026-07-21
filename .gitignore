@@ -1,0 +1,18 @@
+# Dependencies
+/node_modules
+
+# Next.js build output
+/.next
+/out
+
+# Local environment files
+.env*.local
+
+# Test output
+/coverage
+/playwright-report
+/test-results
+
+# Local tooling files
+*.tsbuildinfo
+.DS_Store
