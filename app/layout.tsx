@@ -1,11 +1,21 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Pitch Prep",
-  description: "Turn a rough idea into a research-backed pitch kit in five minutes.",
+  description: "Create audience-aware pitches and prepare for tough questions.",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+type RootLayoutProps = Readonly<{
+  children: ReactNode;
+}>;
+
+export default function RootLayout({ children }: RootLayoutProps) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
 }
