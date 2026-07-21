@@ -68,26 +68,26 @@ Each PR: branch, base, owner, blocked-by/blocks, priority, scope, file list (see
 ### PR-01 — Project scaffold
 - **Branch:** `chore/scaffold` (base `main`) · **Owner:** LANE-C (+LANE-B for `layout.tsx`/`globals.css`) · **Priority:** P0 · **Blocked-by:** — · **Blocks:** PR-02
 - **Tasks:** T-101, T-102, T-103, T-104
-- **Scope:** Next.js App Router + TS + Tailwind; `package.json`, `next.config.ts`, `tailwind.config.ts`, `postcss.config.mjs`; `app/layout.tsx`, `app/globals.css`; `.env.example` (`OPENAI_API_KEY`, `OPENAI_MODEL`, `NEXT_PUBLIC_ENABLE_DEMO_FALLBACK`); README init.
-- **DoD:** `npm run dev`, `npm run lint`, `npm run build` all pass; single page renders; **no** API key in code or git history; `.env.local` gitignored.
+- **Scope:** Next.js App Router + TS + Tailwind; `package.json`, `package-lock.json`, `tsconfig.json`, `next.config.ts`, `tailwind.config.ts`, `postcss.config.mjs`, `.gitignore`; `app/layout.tsx`, `app/globals.css`, **minimal `app/page.tsx`** (defines the `/` route so a page actually renders); `.env.example` (`OPENAI_API_KEY`, `OPENAI_MODEL`, `NEXT_PUBLIC_ENABLE_DEMO_FALLBACK`); README init.
+- **DoD:** `npm run dev`, `npm run lint`, `npm run build` all pass; the `/` route renders a page (not just a layout); **no** API key in code or git history; `.env.local` gitignored.
 
 ### PR-02 — Shared contracts & validation
 - **Branch:** `feat/contracts` (base `main`) · **Owner:** SHARED (LANE-A + LANE-C review) · **Priority:** P0 · **Blocked-by:** PR-01 · **Blocks:** PR-03, PR-04, PR-05, PR-06
 - **Tasks:** T-201, T-202, T-203
-- **Scope:** `lib/contracts.ts` (all `as const` enums, `BeatKey`, `PitchBeat` incl. `purpose`, `ToughQuestion`, `PitchPackage` incl. `assumptions`, `GenerateRequest`, `RegenerateRequest`, `ApiSuccess`/`ApiError`/`ErrorCode` — spec §4–5); `lib/validation.ts` (Zod schemas for request + provider output); `vitest.config.ts`.
-- **DoD:** contract tests assert enum membership, `questionCount` 3–7, `projectDescription` 30–12,000, beat sequence rules per duration (spec §4.1); output schema validates a sample `PitchPackage`; `npm run test` green. Any later change here requires a fresh contract PR.
+- **Scope:** `lib/contracts.ts` (all `as const` enums, `BeatKey`, `WORD_BUDGETS`, `LIMITS`, `PitchBeat` incl. `purpose`, `ToughQuestion`, `PitchPackage` incl. `assumptions`, `GenerateRequest`, `RegenerateRequest`, `ApiSuccess`/`ApiError`/`ErrorCode` — spec §4–5); `lib/validation.ts` (Zod request + provider-output schemas enforcing `LIMITS` and `WORD_BUDGETS`); `vitest.config.ts`.
+- **DoD:** contract tests assert enum membership, `questionCount` 3–7, `projectDescription` 30–12,000, per-field `LIMITS` (oversized → reject), beat sequence rules per duration, and per-duration word-budget bounds (spec §4.1); output schema validates a sample `PitchPackage` and rejects an out-of-budget word count; `npm run test` green. Any later change here requires a fresh contract PR.
 
 ### PR-03 — Generate API route
 - **Branch:** `feat/api-generate` (base `main`) · **Owner:** LANE-C · **Priority:** P0 · **Blocked-by:** PR-02 · **Blocks:** PR-07
 - **Tasks:** T-301, T-302, T-303
 - **Scope:** `app/api/generate/route.ts` + `app/api/__tests__/`; `lib/server-config.ts` (env + model selection, server-only). Route validates `GenerateRequest`, calls the generation function (interface from `lib/contracts`), returns `{ data: PitchPackage }`; full behavior lands once PR-04 merges.
-- **DoD:** valid fixture → `200 { data }` with schema-valid `PitchPackage`; **API key absent from the client bundle** (grep built output); invalid payload → `400 VALIDATION_ERROR` (**E1/E2/E3**); missing key/model → `500 CONFIGURATION_ERROR` (**E9**); provider failure → `502 PROVIDER_ERROR`; bad model output → `502 OUTPUT_VALIDATION_ERROR` (**E8**); rate limit → `429 RATE_LIMITED`. No stack trace or `projectDescription` in client responses/logs.
+- **DoD:** valid fixture → `200 { data }` with schema-valid `PitchPackage`; **API key absent from the client bundle** (grep built output); invalid or oversized payload (any field beyond `LIMITS`) → `400 VALIDATION_ERROR` (**E1/E2/E3/E12**); missing key/model → `500 CONFIGURATION_ERROR` (**E9**); provider failure → `502 PROVIDER_ERROR`; bad model output → `502 OUTPUT_VALIDATION_ERROR` (**E8**); rate limit → `429 RATE_LIMITED`. No stack trace or `projectDescription` in client responses/logs.
 
 ### PR-04 — AI generation core
 - **Branch:** `feat/ai-core` (base `main`) · **Owner:** LANE-A (+LANE-C for `openai-client.ts`, `demo-fallback.ts`) · **Priority:** P0 · **Blocked-by:** PR-02 · **Blocks:** PR-06 (regenerate slice), PR-07
 - **Tasks:** T-401, T-402, T-403, T-404
-- **Scope:** `lib/prompts.ts` (hostile-but-fair persona, audience/duration instruction blocks, untrusted-input framing — spec §6); `lib/generation.ts` (Structured-Outputs orchestration; populates `assumptions`; enforces `projectTerms` per question); `lib/openai-client.ts` (server-only Responses adapter); `lib/demo-fallback.ts` (guarded fixture for **E10**).
-- **DoD:** given `(projectDescription, config)` returns a schema-conformant `PitchPackage`; `pitch` matches the exact beat sequence for the duration; `toughQuestions.length === questionCount`; each question has 1–3 `projectTerms`; missing evidence appears in `assumptions`, never fabricated (**E11**); never-invent list honored (spec §6); fixture tests cover all four audiences producing distinct emphasis.
+- **Scope:** `lib/prompts.ts` (hostile-but-fair persona, audience/duration instruction blocks, untrusted-input framing that delimits `projectDescription` **and** the regeneration `item`/`currentPackage` as data — spec §6); `lib/generation.ts` (Structured-Outputs orchestration; populates `assumptions`; enforces `projectTerms` per question and `WORD_BUDGETS` per duration); `lib/openai-client.ts` (server-only Responses adapter); `lib/demo-fallback.ts` (guarded fixture for **E10**).
+- **DoD:** given `(projectDescription, config)` returns a schema-conformant `PitchPackage`; `pitch` matches the exact beat sequence and total word count is within the duration's `WORD_BUDGETS`; `toughQuestions.length === questionCount`; each question has 1–3 `projectTerms`; missing evidence appears in `assumptions`, never fabricated (**E11**); never-invent list honored (spec §6); a hostile-input test injects instructions into `projectDescription` **and** into an edited beat/answer inside `currentPackage`, asserting developer instructions are unaffected (**E13**); fixture tests cover all four audiences producing distinct emphasis.
 
 ### PR-05 — Input & configuration UI
 - **Branch:** `feat/ui-input` (base `main`) · **Owner:** LANE-B · **Priority:** P0 · **Blocked-by:** PR-02 · **Blocks:** PR-06
@@ -99,7 +99,7 @@ Each PR: branch, base, owner, blocked-by/blocks, priority, scope, file list (see
 - **Branch:** `feat/ui-results` (base `main`; regenerate route co-branch `feat/api-regenerate`) · **Owner:** LANE-B (components) + LANE-C (regenerate route) · **Priority:** P0 for display; **P1 (cuttable)** for the regenerate slice · **Blocked-by:** PR-05 (display); PR-04 (regenerate slice) · **Blocks:** PR-07
 - **Tasks:** T-601, T-602, T-603, T-604 (P0); T-605, T-606 (P1)
 - **Scope (P0):** `components/PitchResult.tsx` (beats + inline edit), `components/ToughQuestions.tsx` (question cards + answer edit), `components/LoadingSkeleton.tsx`, `components/ErrorBanner.tsx`. **Scope (P1):** `app/api/regenerate/route.ts` (`RegenerateRequest` discriminated union; resolves beat `purpose` from `currentPackage`; returns `{ data: { mode, item } }`) + client merge of the single replacement.
-- **DoD (P0):** full `PitchPackage` renders; every beat and answer editable; editing updates local state only, no API call (**E7**); error banner shows no stack trace. **DoD (P1):** only the selected item changes; other edits preserved (**E6**); scoped spinner. If cut, no broken regenerate button appears in the UI.
+- **DoD (P0):** full `PitchPackage` renders; every beat and answer editable; editing updates local state only, no API call (**E7**); error banner shows no stack trace. **DoD (P1):** only the selected item changes; other edits preserved (**E6**); scoped spinner; the route rejects an oversized `currentPackage` (beyond `LIMITS.regeneratePayloadBytes`) with `400 VALIDATION_ERROR` (**E12**). If cut, no broken regenerate button appears in the UI.
 
 ### PR-07 — End-to-end integration
 - **Branch:** `feat/integration` (base `main`) · **Owner:** LANE-C (integrates) + LANE-B (owns `page.tsx`) + LANE-A (integration tests) · **Priority:** P0 · **Blocked-by:** PR-03, PR-04, PR-05, PR-06 (display) · **Blocks:** PR-08, PR-09
@@ -136,7 +136,7 @@ Each PR: branch, base, owner, blocked-by/blocks, priority, scope, file list (see
 | T-103 | Config files (next/tailwind/postcss) | C | PR-01 | 10m | P0 | Build uses them |
 | T-104 | `.env.example` + README init | C | PR-01 | 5m | P0 | No key in code/history |
 | T-201 | `lib/contracts.ts` (types/enums/envelopes) | A+C | PR-02 | 25m | P0 | All spec §4–5 shapes exported |
-| T-202 | `lib/validation.ts` (Zod request + output) | A+C | PR-02 | 20m | P0 | Rejects out-of-bounds input |
+| T-202 | `lib/validation.ts` (Zod request + output) | A+C | PR-02 | 20m | P0 | Enforces `LIMITS` + `WORD_BUDGETS`; rejects oversized/out-of-budget |
 | T-203 | Vitest setup + contract tests | C | PR-02 | 15m | P0 | `npm run test` green |
 | T-301 | `lib/server-config.ts` (env + model) | C | PR-03 | 10m | P0 | Key stays server-side (**E9**) |
 | T-302 | Generate route + validation + error map | C | PR-03 | 20m | P0 | Status codes per spec §5 |
@@ -153,7 +153,7 @@ Each PR: branch, base, owner, blocked-by/blocks, priority, scope, file list (see
 | T-602 | `ToughQuestions` (cards + answer edit) | B | PR-06 | 20m | P0 | Question/why/answer/category shown |
 | T-603 | `LoadingSkeleton` | B | PR-06 | 10m | P0 | Prior result kept during load |
 | T-604 | `ErrorBanner` + retry | B | PR-06 | 10m | P0 | No stack trace; retry available |
-| T-605 | Regenerate route (discriminated union) | C | PR-06 | 25m | P1 | Returns single replacement |
+| T-605 | Regenerate route (discriminated union) | C | PR-06 | 25m | P1 | Returns single replacement; rejects oversized `currentPackage` (**E12**) |
 | T-606 | Merge replacement in client state | B | PR-06 | 15m | P1 | No overwrite of other edits (**E6**) |
 | T-701 | `lib/client-api.ts` (typed fetch) | C | PR-07 | 15m | P0 | Browser-only; no server import |
 | T-702 | Wire Generate flow in `page.tsx` | C+B | PR-07 | 20m | P0 | Full flow works |
@@ -188,10 +188,10 @@ Each PR: branch, base, owner, blocked-by/blocks, priority, scope, file list (see
 **Frozen (no change without a re-reviewed contract PR):**
 - All `as const` enums, `BeatKey`, and every type in [`spec.md` §4.2](./spec.md) (`PitchBeat` incl. `purpose`, `ToughQuestion`, `PitchPackage` incl. `assumptions`, requests).
 - HTTP contract + `ErrorCode`/envelopes ([`spec.md` §5](./spec.md)); status-code semantics.
-- Input/count bounds and per-duration beat sequences ([`spec.md` §4.1](./spec.md)).
+- Input/count bounds, per-field `LIMITS`, per-duration beat sequences, and `WORD_BUDGETS` ([`spec.md` §4.1](./spec.md)).
 - Env var **names** and the module boundaries ([`file_plan.md` §2](./file_plan.md)).
 - The shared files `lib/contracts.ts` and `lib/validation.ts`.
-- The generation guarantees in [`spec.md` §6](./spec.md) (persona, never-invent, `projectTerms` specificity, untrusted-input framing, assumptions surfacing).
+- The generation guarantees in [`spec.md` §6](./spec.md) (persona, never-invent, `projectTerms` specificity, untrusted-input framing for the description **and** regeneration context, assumptions surfacing).
 
 **Evolvable:** prompt wording and audience/duration copy (behind fixtures — PR-04); component internals, styling, microcopy; loading-stage labels; the regenerate token strategy.
 

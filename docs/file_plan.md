@@ -13,7 +13,7 @@
 ```text
 pitch-prep/
 ├── app/
-│   ├── page.tsx                  LANE-B   PR-05/07   SPA composition + state (🚨 Conflict Point)
+│   ├── page.tsx                  LANE-B   PR-01/05/07 Minimal route in PR-01 → SPA composition + state (🚨 Conflict Point)
 │   ├── layout.tsx                LANE-B   PR-01      Root metadata & layouts
 │   ├── globals.css               LANE-B   PR-01      Tailwind layers
 │   ├── __tests__/                LANE-A   PR-07      State machine & integration tests
@@ -30,8 +30,8 @@ pitch-prep/
 │   ├── ErrorBanner.tsx           LANE-B   PR-06      Safe error rendering & retry
 │   └── __tests__/                LANE-B   PR-05/06   UI component test suites
 ├── lib/
-│   ├── contracts.ts              SHARED   PR-02      Frozen TS types, enums, API envelopes
-│   ├── validation.ts             SHARED   PR-02      Shared Zod schemas for request/output
+│   ├── contracts.ts              SHARED   PR-02      Frozen types, enums, WORD_BUDGETS, LIMITS, API envelopes
+│   ├── validation.ts             SHARED   PR-02      Zod request/output schemas enforcing LIMITS + WORD_BUDGETS
 │   ├── openai-client.ts          LANE-C   PR-04      Server-only Responses API adapter
 │   ├── server-config.ts          LANE-C   PR-03      Server-only environment & model selection
 │   ├── client-api.ts             LANE-C   PR-07      Typed browser fetch wrapper
@@ -45,9 +45,12 @@ pitch-prep/
 │   └── pitch-prep-input.txt      LANE-C   PR-08      Golden paste-in input for demo
 ├── Root Configs/
 │   ├── package.json              LANE-C   PR-01      Dependencies & script definitions
+│   ├── package-lock.json         LANE-C   PR-01      Locked, reproducible dependency graph
+│   ├── tsconfig.json             LANE-C   PR-01      Strict TypeScript configuration
 │   ├── next.config.ts            LANE-C   PR-01      Next.js configuration
 │   ├── tailwind.config.ts        LANE-C   PR-01      Tailwind theme configuration
 │   ├── postcss.config.mjs        LANE-C   PR-01      PostCSS setup
+│   ├── .gitignore                LANE-C   PR-01      Ignores deps, builds, local env, test artifacts
 │   ├── vitest.config.ts          LANE-C   PR-02      Unit/component runner setup
 │   ├── playwright.config.ts      LANE-C   PR-08      E2E runner configuration
 │   ├── .env.example              LANE-C   PR-01      Documents OPENAI_API_KEY, OPENAI_MODEL, NEXT_PUBLIC_ENABLE_DEMO_FALLBACK
