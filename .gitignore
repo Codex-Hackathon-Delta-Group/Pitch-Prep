@@ -11,7 +11,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-package-lock.json
 yarn.lock
 .pnpm-debug.log*
 
@@ -21,6 +20,8 @@ yarn.lock
 .env.local
 
 # Build output
+.next/
+*.tsbuildinfo
 dist/
 build/
 out/
