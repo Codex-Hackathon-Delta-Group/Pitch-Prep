@@ -21,7 +21,7 @@ Project description → Audience-aware pitch → Project-specific tough question
 *   Questions mention ≥2 concrete input concepts.
 *   Changing audience produces visibly different emphasis.
 *   Changing 60s → 5m changes the underlying pitch structure.
-*   Every text field is editable inline; regenerating one item never wipes edits elsewhere.
+*   Every pitch **beat** and every **suggested answer** is editable inline (title, question text, `whyAsked`, and `assumptions` render read-only in the MVP); regenerating one item never wipes edits elsewhere.
 *   Output surfaces honest `assumptions` instead of fabricating unproven claims.
 
 ## 2. Scope & Architecture Decisions

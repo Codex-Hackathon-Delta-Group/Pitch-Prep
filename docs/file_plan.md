@@ -30,13 +30,13 @@ pitch-prep/
 │   ├── ErrorBanner.tsx           LANE-B   PR-06      Safe error rendering & retry
 │   └── __tests__/                LANE-B   PR-05/06   UI component test suites
 ├── lib/
-│   ├── contracts.ts              SHARED   PR-02      Frozen types, enums, WORD_BUDGETS, LIMITS, API envelopes
+│   ├── contracts.ts              SHARED   PR-02      Frozen types, enums, WORD_BUDGETS, LIMITS, API envelopes, generation-seam types
 │   ├── validation.ts             SHARED   PR-02      Zod request/output schemas enforcing LIMITS + WORD_BUDGETS
 │   ├── openai-client.ts          LANE-C   PR-04      Server-only Responses API adapter
 │   ├── server-config.ts          LANE-C   PR-03      Server-only environment & model selection
 │   ├── client-api.ts             LANE-C   PR-07      Typed browser fetch wrapper
 │   ├── prompts.ts                LANE-A   PR-04      Developer prompt & instruction builders
-│   ├── generation.ts             LANE-A   PR-04      Structured generation orchestration
+│   ├── generation.ts             LANE-A   PR-02/04   Typed seam + fixture stub (PR-02) → structured orchestration (PR-04)
 │   ├── demo-fallback.ts          LANE-C   PR-04      Guarded fallback fixture
 │   └── __tests__/                LANE-A/C PR-02/04   Validation & prompt generation tests
 ├── tests/e2e/
