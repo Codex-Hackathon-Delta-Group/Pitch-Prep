@@ -34,10 +34,10 @@ pitch-prep/
 │   ├── validation.ts             SHARED   PR-02      Zod request/output schemas enforcing LIMITS + WORD_BUDGETS
 │   ├── openai-client.ts          LANE-C   PR-04      Server-only Responses API adapter
 │   ├── server-config.ts          LANE-C   PR-03      Server-only environment & model selection
-│   ├── client-api.ts             LANE-C   PR-07      Typed browser fetch wrapper
+│   ├── client-api.ts             LANE-C   PR-07      Typed fetch wrapper; serves demo-fallback on failure when flag set (E10)
 │   ├── prompts.ts                LANE-A   PR-04      Developer prompt & instruction builders
 │   ├── generation.ts             LANE-A   PR-02/04   Typed seam + fixture stub (PR-02) → structured orchestration (PR-04)
-│   ├── demo-fallback.ts          LANE-C   PR-04      Guarded fallback fixture
+│   ├── demo-fallback.ts          LANE-C   PR-04      Browser-safe labeled fallback package (E10), used by client-api.ts
 │   └── __tests__/                LANE-A/C PR-02/04   Validation & prompt generation tests
 ├── tests/e2e/
 │   └── pitch-prep.spec.ts        LANE-C   PR-08      Playwright browser acceptance tests
@@ -63,8 +63,8 @@ pitch-prep/
 
 To prevent leaking secrets or causing React hydration errors, strictly enforce these boundaries:
 
-*   **Browser-Only:** `app/page.tsx`, `components/**`, and `lib/client-api.ts`.
-    *   *Rule:* None of these files may import the OpenAI SDK, `lib/server-config.ts`, or access `process.env` secrets directly.
+*   **Browser-Only:** `app/page.tsx`, `components/**`, `lib/client-api.ts`, and `lib/demo-fallback.ts` (static labeled fixture — no secrets or SDK).
+    *   *Rule:* None of these files may import the OpenAI SDK, `lib/server-config.ts`, or access `process.env` secrets directly (the public `NEXT_PUBLIC_ENABLE_DEMO_FALLBACK` flag is allowed).
 *   **Server-Only:** `app/api/**`, `lib/openai-client.ts`, `lib/prompts.ts`, `lib/generation.ts`, `lib/server-config.ts`.
     *   *Rule:* All provider calls, prompt construction, and secret parsing stay here.
 *   **Shared Pure Contracts:** `lib/contracts.ts` and `lib/validation.ts`.

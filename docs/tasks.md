@@ -29,7 +29,7 @@ Disjoint file ownership is what lets the three lanes run in parallel. Ownership 
 | **LANE-C** | `api-integration` | `app/api/**`, `lib/openai-client.ts`, `lib/server-config.ts`, `lib/client-api.ts`, `lib/demo-fallback.ts`, `tests/e2e/*`, `demo/*`, all root config | PR-01, PR-03, PR-08, PR-10 | PR-02, PR-06 (regenerate route), PR-07 |
 
 ### Module boundaries (enforced — [`file_plan.md` §2](./file_plan.md))
-- **Browser-only:** `app/page.tsx`, `components/**`, `lib/client-api.ts` — must **not** import the OpenAI SDK, `lib/server-config.ts`, or read `process.env` secrets.
+- **Browser-only:** `app/page.tsx`, `components/**`, `lib/client-api.ts`, `lib/demo-fallback.ts` (static labeled fixture, no secrets) — must **not** import the OpenAI SDK, `lib/server-config.ts`, or read `process.env` secrets (the public `NEXT_PUBLIC_ENABLE_DEMO_FALLBACK` flag is allowed).
 - **Server-only:** `app/api/**`, `lib/openai-client.ts`, `lib/prompts.ts`, `lib/generation.ts`, `lib/server-config.ts`.
 - **Shared pure:** `lib/contracts.ts`, `lib/validation.ts`.
 
@@ -74,8 +74,8 @@ Each PR: branch, base, owner, blocked-by/blocks, priority, scope, file list (see
 ### PR-02 — Shared contracts & validation
 - **Branch:** `feat/contracts` (base `main`) · **Owner:** SHARED (LANE-A + LANE-C review) · **Priority:** P0 · **Blocked-by:** PR-01 · **Blocks:** PR-03, PR-04, PR-05, PR-06
 - **Tasks:** T-201, T-202, T-203
-- **Scope:** `lib/contracts.ts` (all `as const` enums, `BeatKey`, `WORD_BUDGETS`, `LIMITS`, `PitchBeat` incl. `purpose`, `ToughQuestion`, `PitchPackage` incl. `assumptions`, `GenerateRequest`, `RegenerateRequest`, `ApiSuccess`/`ApiError`/`ErrorCode`, and the **generation-seam types** `GeneratePackage`/`RegenerateItem` — spec §4–5); `lib/validation.ts` (Zod request + provider-output schemas enforcing `LIMITS` and `WORD_BUDGETS`); `lib/generation.ts` **typed stub** implementing the seam by returning a fixture package (real orchestration lands in PR-04); `vitest.config.ts`.
-- **DoD:** contract tests assert enum membership, `questionCount` 3–7, `projectDescription` 30–12,000, per-field `LIMITS` (oversized → reject), beat sequence rules per duration, and per-duration word-budget bounds (spec §4.1); output schema validates a sample `PitchPackage` and rejects an out-of-budget word count; `npm run test` green. Any later change here requires a fresh contract PR.
+- **Scope:** `lib/contracts.ts` (all `as const` enums, `BeatKey`, `WORD_BUDGETS`, `LIMITS`, `PitchBeat` incl. `purpose`, `ToughQuestion`, `PitchPackage` incl. `assumptions`, `GenerateRequest`, `RegenerateRequest`, `ApiSuccess`/`ApiError`/`ErrorCode`, and the **generation-seam types** `GeneratePackage`/`RegenerateItem` — spec §4–5); `lib/validation.ts` (Zod request + provider-output schemas enforcing `LIMITS`, `WORD_BUDGETS`, and §6 term-grounding — the output validator takes `projectDescription` to check each question's `projectTerms` are normalized substrings of it and appear in the question text); `lib/generation.ts` **typed stub** implementing the seam by returning a fixture package (real orchestration lands in PR-04); `vitest.config.ts`.
+- **DoD:** contract tests assert enum membership, `questionCount` 3–7, `projectDescription` 30–12,000, per-field `LIMITS` (oversized → reject), beat sequence rules per duration, and per-duration word-budget bounds (spec §4.1); output schema validates a sample `PitchPackage` and rejects an out-of-budget word count **and a question whose `projectTerms` are not normalized substrings of `projectDescription` or whose text contains none of them (§6)**; `npm run test` green. Any later change here requires a fresh contract PR.
 
 ### PR-03 — Generate API route
 - **Branch:** `feat/api-generate` (base `main`) · **Owner:** LANE-C · **Priority:** P0 · **Blocked-by:** PR-02 · **Blocks:** PR-07
@@ -86,8 +86,8 @@ Each PR: branch, base, owner, blocked-by/blocks, priority, scope, file list (see
 ### PR-04 — AI generation core
 - **Branch:** `feat/ai-core` (base `main`) · **Owner:** LANE-A (+LANE-C for `openai-client.ts`, `demo-fallback.ts`) · **Priority:** P0 · **Blocked-by:** PR-02 · **Blocks:** PR-06 (regenerate slice), PR-07
 - **Tasks:** T-401, T-402, T-403, T-404
-- **Scope:** `lib/prompts.ts` (hostile-but-fair persona, audience/duration instruction blocks, untrusted-input framing that delimits `projectDescription` **and** the regeneration `item`/`currentPackage` as data — spec §6); `lib/generation.ts` (**replaces the PR-02 stub** with Structured-Outputs orchestration; populates `assumptions`; enforces `projectTerms` per question and `WORD_BUDGETS` per duration); `lib/openai-client.ts` (server-only Responses adapter); `lib/demo-fallback.ts` (guarded fixture for **E10**).
-- **DoD:** given `(projectDescription, config)` returns a schema-conformant `PitchPackage`; `pitch` matches the exact beat sequence and total word count is within the duration's `WORD_BUDGETS`; `toughQuestions.length === questionCount`; each question has 1–3 `projectTerms`; missing evidence appears in `assumptions`, never fabricated (**E11**); never-invent list honored (spec §6); a hostile-input test injects instructions into `projectDescription` **and** into an edited beat/answer inside `currentPackage`, asserting developer instructions are unaffected (**E13**); fixture tests cover all four audiences producing distinct emphasis.
+- **Scope:** `lib/prompts.ts` (hostile-but-fair persona, audience/duration instruction blocks, untrusted-input framing that delimits `projectDescription` **and** the regeneration `item`/`currentPackage` as data — spec §6); `lib/generation.ts` (**replaces the PR-02 stub** with Structured-Outputs orchestration; populates `assumptions`; enforces `projectTerms` per question and `WORD_BUDGETS` per duration); `lib/openai-client.ts` (server-only Responses adapter); `lib/demo-fallback.ts` (a **browser-safe**, labeled fallback package — no secrets/SDK — consumed by `lib/client-api.ts` for **E10**).
+- **DoD:** given `(projectDescription, config)` returns a schema-conformant `PitchPackage`; `pitch` matches the exact beat sequence and total word count is within the duration's `WORD_BUDGETS`; `toughQuestions.length === questionCount`; each question has 1–3 `projectTerms` that are normalized substrings of `projectDescription` and appear in the question text (§6), with a test asserting a generic question + unrelated terms is rejected as `502 OUTPUT_VALIDATION_ERROR`; missing evidence appears in `assumptions`, never fabricated (**E11**); never-invent list honored (spec §6); a hostile-input test injects instructions into `projectDescription` **and** into an edited beat/answer inside `currentPackage`, asserting developer instructions are unaffected (**E13**); fixture tests cover all four audiences producing distinct emphasis.
 
 ### PR-05 — Input & configuration UI
 - **Branch:** `feat/ui-input` (base `main`) · **Owner:** LANE-B · **Priority:** P0 · **Blocked-by:** PR-02 · **Blocks:** PR-06
@@ -104,14 +104,14 @@ Each PR: branch, base, owner, blocked-by/blocks, priority, scope, file list (see
 ### PR-07 — End-to-end integration
 - **Branch:** `feat/integration` (base `main`) · **Owner:** LANE-C (integrates) + LANE-B (owns `page.tsx`) + LANE-A (integration tests) · **Priority:** P0 · **Blocked-by:** PR-03, PR-04, PR-05, PR-06 (display) · **Blocks:** PR-08, PR-09
 - **Tasks:** T-701, T-702, T-703, T-704
-- **Scope:** `lib/client-api.ts` (typed browser fetch wrapper); wire `page.tsx` Generate (and Regenerate if PR-06 P1 shipped) to the API; loading skeleton + simulated stages; stale-result behavior; error banner + manual retry; `app/__tests__/` state-machine + integration tests. **This is the conflict point** — LANE-C via props/hooks only.
-- **DoD:** paste → Generate → result works end to end; failure keeps the previous package (**E5**); loading keeps prior result visible; retry available; module boundaries respected (no server import in browser files).
+- **Scope:** `lib/client-api.ts` (typed browser fetch wrapper; when `NEXT_PUBLIC_ENABLE_DEMO_FALLBACK==='true'` and a request fails, resolves with the labeled `lib/demo-fallback.ts` package `{ fallback: true }` instead of throwing); wire `page.tsx` Generate (and Regenerate if PR-06 P1 shipped) to the API; loading skeleton + simulated stages; stale-result behavior; a clear *"Demo fallback — not a live result"* notice when `fallback` is set; error banner + manual retry; `app/__tests__/` state-machine + integration tests. **This is the conflict point** — LANE-C via props/hooks only.
+- **DoD:** paste → Generate → result works end to end; failure keeps the previous package (**E5**); with `NEXT_PUBLIC_ENABLE_DEMO_FALLBACK` on and the API forced to fail (incl. missing-key `500`/provider `502`/network), `client-api.ts` returns the labeled fallback and the UI shows the *"Demo fallback"* notice instead of an error (**E10**); loading keeps prior result visible; retry available; module boundaries respected (no server import in browser files).
 
 ### PR-08 — E2E acceptance + demo hardening
 - **Branch:** `chore/e2e-demo` (base `main`) · **Owner:** LANE-C · **Priority:** P0 · **Blocked-by:** PR-07 · **Blocks:** PR-10
 - **Tasks:** T-801, T-802, T-803
-- **Scope:** `tests/e2e/pitch-prep.spec.ts` (Playwright acceptance of the demo loop); `demo/pitch-prep-input.txt` (golden input); `playwright.config.ts`; verify demo fallback path.
-- **DoD:** e2e run covers paste → Generate → edit → (regenerate or skip); demo works even when the live API fails, clearly labeled as fallback (**E10**); `demo/pitch-prep-input.txt` ready to paste.
+- **Scope:** `tests/e2e/pitch-prep.spec.ts` (Playwright acceptance of the demo loop); `demo/pitch-prep-input.txt` (golden input); `playwright.config.ts`; verify the client-side, flag-gated demo fallback path.
+- **DoD:** e2e run covers paste → Generate → edit → (regenerate or skip), **plus a fallback run — with the flag enabled and generation forced to fail, the labeled fallback renders and is never presented as live** (**E10**); `demo/pitch-prep-input.txt` ready to paste.
 
 ### PR-09 — UI polish & accessibility
 - **Branch:** `fix/ui-polish` (base `main`) · **Owner:** LANE-B · **Priority:** P1 · **Blocked-by:** PR-07 · **Blocks:** —
@@ -136,15 +136,15 @@ Each PR: branch, base, owner, blocked-by/blocks, priority, scope, file list (see
 | T-103 | Config files (next/tailwind/postcss) | C | PR-01 | 10m | P0 | Build uses them |
 | T-104 | `.env.example` + README init | C | PR-01 | 5m | P0 | No key in code/history |
 | T-201 | `lib/contracts.ts` (types/enums/envelopes) | A+C | PR-02 | 25m | P0 | All spec §4–5 shapes exported |
-| T-202 | `lib/validation.ts` (Zod request + output) | A+C | PR-02 | 20m | P0 | Enforces `LIMITS` + `WORD_BUDGETS`; rejects oversized/out-of-budget |
+| T-202 | `lib/validation.ts` (Zod request + output) | A+C | PR-02 | 20m | P0 | Enforces `LIMITS`, `WORD_BUDGETS`, §6 term-grounding; rejects oversized/out-of-budget/ungrounded |
 | T-203 | Vitest setup + contract tests | C | PR-02 | 15m | P0 | `npm run test` green |
 | T-301 | `lib/server-config.ts` (env + model) | C | PR-03 | 10m | P0 | Key stays server-side (**E9**) |
 | T-302 | Generate route + validation + error map | C | PR-03 | 20m | P0 | Status codes per spec §5 |
 | T-303 | Route HTTP contract tests | C | PR-03 | 15m | P0 | 200/400/429/500/502 covered |
 | T-401 | `lib/prompts.ts` (persona/audience/duration) | A | PR-04 | 25m | P0 | Distinct emphasis per audience |
-| T-402 | `lib/generation.ts` (orchestration + assumptions) | A | PR-04 | 25m | P0 | `projectTerms` + `assumptions` populated (**E11**) |
+| T-402 | `lib/generation.ts` (orchestration + assumptions) | A | PR-04 | 25m | P0 | Grounded `projectTerms` (in-question, §6) + `assumptions` populated (**E11**) |
 | T-403 | `lib/openai-client.ts` (server adapter) | C | PR-04 | 15m | P0 | Structured Outputs call works |
-| T-404 | `lib/demo-fallback.ts` (guarded fixture) | C | PR-04 | 10m | P0 | Loads only in demo/failure (**E10**) |
+| T-404 | `lib/demo-fallback.ts` (browser-safe fallback pkg) | C | PR-04 | 10m | P0 | Client serves it on failure when flag set (**E10**) |
 | T-501 | `page.tsx` state scaffold | B | PR-05 | 20m | P0 | draft/config/package/status modeled |
 | T-502 | `InputForm` (textarea+counter+validation) | B | PR-05 | 20m | P0 | 30–12,000 chars; clear message |
 | T-503 | `ConfigurationPanel` (audience/duration/count) | B | PR-05 | 15m | P0 | Defaults judge_investor / 60_seconds / 5 |
