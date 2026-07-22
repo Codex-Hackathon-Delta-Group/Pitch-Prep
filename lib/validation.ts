@@ -4,7 +4,13 @@ import { AUDIENCES } from "./contracts";
 const strict = <T extends z.ZodRawShape>(shape: T) => z.strictObject(shape);
 const bounded = (min: number, max: number) => z.string().trim().min(min).max(max);
 const id = bounded(1, 100);
-const httpsUrl = z.string().url().refine((value) => value.startsWith("https://"), "Source URLs must use HTTPS");
+// Keep provider-facing structured-output schemas to JSON Schema's portable string
+// subset. URL and date-time formats are validated locally instead of emitted as
+// JSON Schema `format` keywords, which OpenAI strict schemas reject.
+const httpsUrl = z.string().refine((value) => {
+  try { return new URL(value).protocol === "https:"; } catch { return false; }
+}, "Source URLs must use HTTPS");
+const isoTimestamp = z.string().refine((value) => !Number.isNaN(Date.parse(value)), "Expected an ISO timestamp");
 
 export const audienceSchema = z.enum(AUDIENCES);
 export const alternativeSchema = strict({
@@ -33,7 +39,7 @@ const uniqueBy = <T>(items: T[], key: (item: T) => string) => new Set(items.map(
 
 export const analysisSchema = strict({
   analysisId: id,
-  analyzedAt: z.string().datetime(),
+  analyzedAt: isoTimestamp,
   originalSummary: bounded(1, 1500),
   alternatives: z.array(alternativeSchema).max(5),
   marketConclusion: strict({

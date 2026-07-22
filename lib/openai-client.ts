@@ -7,6 +7,7 @@ let client: OpenAI | undefined;
 export class ConfigurationError extends Error {}
 export class OutputValidationError extends Error {}
 export class ResearchError extends Error {}
+export class ProviderError extends Error {}
 
 function getClient() {
   if (!process.env.OPENAI_API_KEY) throw new ConfigurationError("OpenAI is not configured on the server.");
@@ -48,6 +49,10 @@ export async function structuredResponse<T extends z.ZodType>(options: {
       return parsed;
     } catch (error) {
       if (error instanceof ConfigurationError || error instanceof OpenAI.RateLimitError) throw error;
+      if (error instanceof OpenAI.APIError) {
+        const detail = error.code ? `: ${error.code}` : "";
+        throw new ProviderError(`OpenAI request failed${error.status ? ` (${error.status})` : ""}${detail}.`);
+      }
       lastError = error;
     }
   }

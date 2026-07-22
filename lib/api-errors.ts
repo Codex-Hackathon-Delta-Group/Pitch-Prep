@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { ZodError } from "zod";
-import { ConfigurationError, OutputValidationError, ResearchError } from "./openai-client";
+import { ConfigurationError, OutputValidationError, ProviderError, ResearchError } from "./openai-client";
 import type { ErrorCode } from "./contracts";
 
 export function apiError(error: unknown) {
@@ -18,6 +18,8 @@ export function apiError(error: unknown) {
     code = "OUTPUT_VALIDATION_ERROR"; message = "The generated result did not pass validation. Please retry.";
   } else if (error instanceof ResearchError) {
     code = "RESEARCH_FAILED"; message = "Live research did not return trustworthy sources. Please retry.";
+  } else if (error instanceof ProviderError) {
+    code = "PROVIDER_ERROR"; message = error.message;
   } else if (error instanceof OpenAI.RateLimitError) {
     status = 429; code = "RATE_LIMITED"; message = "The service is busy. Please wait a moment and retry.";
   }

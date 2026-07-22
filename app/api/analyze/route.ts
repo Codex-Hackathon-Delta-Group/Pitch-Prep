@@ -33,5 +33,7 @@ export async function POST(request: NextRequest) {
 
 function normalizeUrl(value: string) {
   const url = new URL(value);
-  return `${url.origin.toLowerCase()}${url.pathname.replace(/\/$/, "")}`;
+  const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+  const pathname = url.pathname.replace(/\/$/, "") || "/";
+  return `${url.protocol}//${hostname}${url.port ? `:${url.port}` : ""}${pathname}`;
 }
